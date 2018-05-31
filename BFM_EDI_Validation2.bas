@@ -21,11 +21,14 @@ Private ErrorCode As String
 Private claimColumn As Integer
 Private filestring As String
 Private fileName As String
+Private txtFileName As String
+
 
 Public Sub BFM_EDI_Validator()
 
 Application.ScreenUpdating = False
 
+Call OpenFileDialogBox
 Call import_XML
 
 'Call ReportFormat
@@ -49,6 +52,9 @@ Application.ScreenUpdating = True
 If Errors = True Then
     MsgBox "Procedure is complete. Error Report has been created."
     Else
+    directory = "P:\Public\ACM\HSP\BFM\Javelina Response File\"
+    ActiveWorkbook.SaveAs fileName:=directory & Name_File()
+    Call Make_Outlook_Mail_With_File_Link
     MsgBox "Procedure Complete!"
 End If
 
@@ -325,8 +331,8 @@ If Day(Now() - t) < 10 Then
     dayReport = Day(Now() - t)
 End If
 
-directory = "\\cawinw16\bfm\Production\Inbound\"
-fileName = Dir(directory & yearReport & monthReport & dayReport & "_*_BFM-ACM.xml")
+'directory = "\\cawinw16\bfm\Production\Inbound\"
+fileName = Dir(txtFileName)
 
 If fileName = "" Then
     MsgBox "File is not found"
@@ -348,4 +354,105 @@ End If
         , ImportMap:=Nothing, Overwrite:=True, Destination:=Range("$A$1")
 
 End Sub
+
+
+
+Public Sub OpenFileDialogBox()
+  
+    Dim fd As Office.FileDialog
+
+    Set fd = Application.FileDialog(msoFileDialogFilePicker)
+
+   With fd
+
+      .AllowMultiSelect = False
+
+      ' Set the title of the dialog box.
+      .Title = "Please select the file."
+
+      ' Clear out the current filters, and add our own.
+      .Filters.Clear
+'      .Filters.Add "All Files", "*.csv"
+'      .Filters.Add "All Files", "*.DAT"
+'      .Filters.Add "Excel 2010", "*.xlsx"
+'      .Filters.Add "Excel 2010", "*.xlsm"
+        .Filters.Add "Extensible Markup Language Files", "*.xml"
+      .InitialFileName = "X:\Production\Inbound"
+
+      ' Show the dialog box. If the .Show method returns True, the
+      ' user picked at least one file. If the .Show method returns
+      ' False, the user clicked Cancel.
+      If .Show = True Then
+        txtFileName = .SelectedItems(1) 'replace txtFileName with your textbox
+
+      End If
+   End With
+
+End Sub
+
+Sub Make_Outlook_Mail_With_File_Link()
+
+    Dim OutApp As Object
+    Dim OutMail As Object
+    Dim strbody As String
+
+    If ActiveWorkbook.Path <> "" Then
+        Set OutApp = CreateObject("Outlook.Application")
+        Set OutMail = OutApp.CreateItem(0)
+
+        strbody = "<font size=""3"" face=""Calibri"">" & _
+                  "Hi,<br/><br/>" & _
+                  "I have attached the corrected BF&amp;M response file. Let me know if you have any questions.<br/>" & _
+                  "This file contains either corrections to the response file or extracted corrected claims."
+
+        On Error Resume Next
+        With OutMail
+            .display
+            .To = "Cgulisano@active-care.ca"
+            .CC = "mpaquette@active-care.ca; jterry@active-care.ca; jrenon@active-care.ca"
+            .BCC = ""
+            .Subject = "BFM Response File [" & fileName & "]"
+            .HTMLbody = strbody & "<br/>" & .HTMLbody
+            .Attachments.Add ActiveWorkbook.fullName
+            .display   'or use .Send
+        End With
+        On Error GoTo 0
+
+        Set OutMail = Nothing
+        Set OutApp = Nothing
+    Else
+        MsgBox "The ActiveWorkbook does not have a path, Save the file first."
+    End If
+End Sub
+
+
+
+Public Function Name_File()
+
+If Weekday(Now(), 1) = 2 Then
+    t = 3
+    Else
+    t = 1
+End If
+
+yearReport = Year(Now() - t)
+
+monthReport = MonthName(Month(Now() - t), True)
+
+
+'control friday
+If Day(Now() - t) < 10 Then
+    dayReport = 0 & Day(Now() - t)
+    Else
+    dayReport = Day(Now() - t)
+End If
+
+If Len(Hour(Now())) < 2 Then reportHour = 0 & Hour(Now()) Else reportHour = Hour(Now())
+If Len(Minute(Now())) < 2 Then reportMinute = 0 & Minute(Now()) Else reportMinute = Minute(Now())
+If Len(Second(Now())) < 2 Then reportSecond = 0 & Second(Now()) Else reportSecond = Second(Now())
+
+Name_File = monthReport & "_" & dayReport & "_" & yearReport & "_" & reportHour & reportMinute & reportSecond & "_Response_file.xlsx"
+
+
+End Function
 
